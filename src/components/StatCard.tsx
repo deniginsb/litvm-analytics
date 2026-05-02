@@ -1,0 +1,58 @@
+import { cn } from '../lib/utils'
+
+interface StatCardProps {
+  label: string
+  value: string
+  change: number
+  prefix?: string
+  suffix?: string
+  index?: number
+}
+
+export function StatCard({ label, value, change, suffix, index = 0 }: StatCardProps) {
+  const isPositive = change >= 0
+  const isNeutral = change === 0
+
+  return (
+    <div
+      className={cn(
+        'group relative overflow-hidden rounded-xl border border-border bg-surface-secondary p-5',
+        'transition-all duration-300 hover:border-border-light hover:bg-surface-tertiary',
+        'animate-slide-up opacity-0',
+        `stagger-${index + 1}`
+      )}
+    >
+      {/* Subtle gradient on hover */}
+      <div className="absolute inset-0 bg-gradient-to-br from-accent/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+      
+      <div className="relative">
+        <p className="text-xs font-medium uppercase tracking-wider text-text-muted">
+          {label}
+        </p>
+        <div className="mt-2 flex items-baseline gap-1.5">
+          <span className="text-2xl font-semibold tracking-tight text-text-primary">
+            {value}
+          </span>
+          {suffix && (
+            <span className="text-sm text-text-secondary">{suffix}</span>
+          )}
+        </div>
+        <div className="mt-2 flex items-center gap-1.5">
+          <span
+            className={cn(
+              'inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium',
+              isNeutral
+                ? 'bg-surface-tertiary text-text-secondary'
+                : isPositive
+                ? 'bg-green-muted text-green'
+                : 'bg-red-muted text-red'
+            )}
+          >
+            {isPositive ? '↑' : isNeutral ? '→' : '↓'} {Math.abs(change).toFixed(1)}%
+          </span>
+          <span className="text-xs text-text-muted">24h</span>
+        </div>
+      </div>
+    </div>
+  )
+}
