@@ -27,7 +27,7 @@ export function Header() {
               LitVM Analytics
             </h1>
             <p className="text-[10px] text-text-muted uppercase tracking-widest">
-              LiteForge Testnet
+              LiteForge Testnet · Chain 4441
             </p>
           </div>
         </div>
@@ -43,7 +43,7 @@ export function Header() {
             rel="noopener noreferrer"
             className="text-xs text-text-muted hover:text-text-secondary transition-colors"
           >
-            LitVM Testnet ↗
+            Testnet ↗
           </a>
           <a
             href="https://liteforge.explorer.caldera.xyz"
