@@ -114,8 +114,8 @@ export function VolumeChart({ data }: VolumeChartProps) {
     <div className="rounded-xl border border-border bg-surface-secondary p-5 animate-slide-up stagger-3">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Daily Volume (Phase 4)</h3>
-          <p className="text-xs text-text-muted mt-0.5">Event-based volume indexing coming next</p>
+          <h3 className="text-sm font-semibold text-text-primary">24h Swap Volume</h3>
+          <p className="text-xs text-text-muted mt-0.5">Live estimate from recent swap transactions</p>
         </div>
         <div className="flex gap-1 rounded-lg bg-surface p-0.5">
           {timeRanges.map((r) => (

@@ -10,10 +10,16 @@ interface Transaction {
 
 interface RecentTransactionsProps {
   data: Transaction[]
+  lastUpdated?: Date | null
 }
 
 const typeColors: Record<string, string> = {
   Swap: 'bg-blue-muted text-blue',
+  Approve: 'bg-amber-muted text-amber',
+  Transfer: 'bg-green-muted text-green',
+  Withdraw: 'bg-red-muted text-red',
+  deposit: 'bg-green-muted text-green',
+  mint: 'bg-accent-muted text-accent-light',
   'Add Liquidity': 'bg-green-muted text-green',
   'Register Domain': 'bg-accent-muted text-accent-light',
   'Create Token': 'bg-amber-muted text-amber',
@@ -21,18 +27,33 @@ const typeColors: Record<string, string> = {
   Borrow: 'bg-red-muted text-red',
 }
 
-export function RecentTransactions({ data }: RecentTransactionsProps) {
+export function RecentTransactions({ data, lastUpdated }: RecentTransactionsProps) {
   return (
     <div className="rounded-xl border border-border bg-surface-secondary animate-slide-up stagger-6">
       <div className="border-b border-border px-5 py-4">
-        <h3 className="text-sm font-semibold text-text-primary">Recent Transactions</h3>
-        <p className="text-xs text-text-muted mt-0.5">Latest on-chain activity</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-text-primary">Recent Transactions</h3>
+            <p className="text-xs text-text-muted mt-0.5">
+              Live on-chain activity · auto-refresh 5s
+            </p>
+          </div>
+          <div className="flex items-center gap-2 rounded-lg bg-green-muted px-2 py-1">
+            <div className="h-1.5 w-1.5 rounded-full bg-green animate-pulse" />
+            <span className="text-[10px] font-medium text-green">
+              {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Live'}
+            </span>
+          </div>
+        </div>
       </div>
       <div className="divide-y divide-border/50">
         {data.map((tx, index) => (
           <div
-            key={index}
-            className="flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-surface-tertiary"
+            key={tx.hash + index}
+            className={cn(
+              'flex items-center justify-between px-5 py-3.5 transition-colors hover:bg-surface-tertiary',
+              index === 0 && 'bg-accent-muted/20'
+            )}
           >
             <div className="flex items-center gap-3">
               <span

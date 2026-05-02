@@ -6,7 +6,7 @@ import { ProtocolTable } from './components/ProtocolTable'
 import { TokenList } from './components/TokenList'
 import { RecentTransactions } from './components/RecentTransactions'
 import { useChainStats } from './hooks/useChainStats'
-import { useRecentTransactions, useTokenList } from './hooks/useExplorer'
+import { useRecentTransactions, useTokenList, useVolume24h } from './hooks/useExplorer'
 import { useProtocolTVL } from './hooks/useProtocolTVL'
 import { chartData, topTokens as mockTokens } from './data/mockData'
 
@@ -38,8 +38,9 @@ function fmtUSD(n: number): string {
 
 export default function App() {
   const { stats, loading, error, lastUpdated } = useChainStats(30000)
-  const { transactions } = useRecentTransactions(8)
+  const { transactions, lastUpdated: txLastUpdated } = useRecentTransactions(20, 5000)
   const { tokens: explorerTokens } = useTokenList(10)
+  const volume24h = useVolume24h(30000, 8)
   const { protocols, totalTVL, isLoading: tvlLoading } = useProtocolTVL()
 
   const displayTokens = explorerTokens.length > 0
@@ -75,7 +76,7 @@ export default function App() {
     name: p.name,
     category: p.category,
     tvl: p.tvl,
-    volume24h: 0,
+    volume24h: p.name === 'LiteSwap' ? volume24h.volume24hUsd : 0,
     change24h: 0,
     txCount24h: p.trackedItems,
     icon: p.icon,
@@ -83,7 +84,7 @@ export default function App() {
 
   const statCards = [
     { label: 'Tracked TVL', value: totalTVL > 0 ? fmtUSD(totalTVL) : '—', isLoading: tvlLoading },
-    { label: '24h Volume', value: '—', isLoading: false },
+    { label: '24h Volume', value: volume24h.volume24hUsd > 0 ? fmtUSD(volume24h.volume24hUsd) : '—', isLoading: volume24h.isLoading },
     { label: 'Transactions (24h)', value: stats.txCount24h > 0 ? fmtNum(stats.txCount24h) : '—', isLoading: loading },
     { label: 'Active Addresses', value: stats.activeAddresses > 0 ? fmtNum(stats.activeAddresses) : '—', isLoading: loading },
     { label: 'Gas Price', value: stats.gasPrice !== '0' ? stats.gasPrice : '—', suffix: 'zkLTC', isLoading: loading },
@@ -91,6 +92,15 @@ export default function App() {
   ]
 
   const tvlChartData = chartData.map(point => ({ ...point, tvl: totalTVL || 0 }))
+  const volumeChartData = volume24h.points.length
+    ? volume24h.points.map(point => ({
+        date: point.date,
+        tvl: totalTVL || 0,
+        volume: point.volume,
+        txCount: stats.txCount24h || 0,
+        activeAddresses: stats.activeAddresses || 0,
+      }))
+    : chartData.map(point => ({ ...point, volume: 0 }))
 
   return (
     <div className="min-h-screen bg-surface">
@@ -123,7 +133,7 @@ export default function App() {
 
         <div className="mb-8 grid gap-4 lg:grid-cols-2">
           <TVLChart data={tvlChartData} />
-          <VolumeChart data={chartData} />
+          <VolumeChart data={volumeChartData} />
         </div>
 
         <div className="mb-8"><TxChart data={chartData} /></div>
@@ -131,7 +141,7 @@ export default function App() {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <TokenList data={displayTokens} />
-          <RecentTransactions data={displayTxs} />
+          <RecentTransactions data={displayTxs} lastUpdated={txLastUpdated} />
         </div>
       </main>
       <Footer />
