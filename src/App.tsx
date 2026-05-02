@@ -90,6 +90,8 @@ export default function App() {
     { label: 'Latest Block', value: stats.latestBlock > 0 ? fmtNum(stats.latestBlock) : '—', isLoading: loading },
   ]
 
+  const tvlChartData = chartData.map(point => ({ ...point, tvl: totalTVL || 0 }))
+
   return (
     <div className="min-h-screen bg-surface">
       <Header />
@@ -120,7 +122,7 @@ export default function App() {
         </div>
 
         <div className="mb-8 grid gap-4 lg:grid-cols-2">
-          <TVLChart data={chartData} />
+          <TVLChart data={tvlChartData} />
           <VolumeChart data={chartData} />
         </div>
 

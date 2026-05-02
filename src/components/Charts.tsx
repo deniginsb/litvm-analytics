@@ -21,8 +21,8 @@ export function TVLChart({ data }: TVLChartProps) {
     <div className="rounded-xl border border-border bg-surface-secondary p-5 animate-slide-up stagger-2">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Total Value Locked</h3>
-          <p className="text-xs text-text-muted mt-0.5">Aggregate TVL across all protocols</p>
+          <h3 className="text-sm font-semibold text-text-primary">Tracked TVL</h3>
+          <p className="text-xs text-text-muted mt-0.5">Current priced asset balances tracked on-chain</p>
         </div>
         <div className="flex gap-1 rounded-lg bg-surface p-0.5">
           {timeRanges.map((r) => (
@@ -114,8 +114,8 @@ export function VolumeChart({ data }: VolumeChartProps) {
     <div className="rounded-xl border border-border bg-surface-secondary p-5 animate-slide-up stagger-3">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-sm font-semibold text-text-primary">Daily Volume</h3>
-          <p className="text-xs text-text-muted mt-0.5">24h trading volume</p>
+          <h3 className="text-sm font-semibold text-text-primary">Daily Volume (Phase 4)</h3>
+          <p className="text-xs text-text-muted mt-0.5">Event-based volume indexing coming next</p>
         </div>
         <div className="flex gap-1 rounded-lg bg-surface p-0.5">
           {timeRanges.map((r) => (
@@ -201,8 +201,8 @@ export function TxChart({ data }: TxChartProps) {
   return (
     <div className="rounded-xl border border-border bg-surface-secondary p-5 animate-slide-up stagger-4">
       <div className="mb-4">
-        <h3 className="text-sm font-semibold text-text-primary">Daily Transactions</h3>
-        <p className="text-xs text-text-muted mt-0.5">Transaction count per day</p>
+        <h3 className="text-sm font-semibold text-text-primary">Daily Transactions Trend (Phase 6)</h3>
+        <p className="text-xs text-text-muted mt-0.5">Historical backfill coming after realtime metrics</p>
       </div>
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
