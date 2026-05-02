@@ -84,7 +84,7 @@ export default function App() {
 
   const statCards = [
     { label: 'Tracked TVL', value: totalTVL > 0 ? fmtUSD(totalTVL) : '—', isLoading: tvlLoading },
-    { label: '24h Volume', value: volume24h.volume24hUsd > 0 ? fmtUSD(volume24h.volume24hUsd) : '—', isLoading: volume24h.isLoading },
+    { label: 'Live Volume', value: volume24h.volume24hUsd > 0 ? fmtUSD(volume24h.volume24hUsd) : '—', isLoading: volume24h.isLoading },
     { label: 'Transactions (24h)', value: stats.txCount24h > 0 ? fmtNum(stats.txCount24h) : '—', isLoading: loading },
     { label: 'Active Addresses', value: stats.activeAddresses > 0 ? fmtNum(stats.activeAddresses) : '—', isLoading: loading },
     { label: 'Gas Price', value: stats.gasPrice !== '0' ? stats.gasPrice : '—', suffix: 'zkLTC', isLoading: loading },

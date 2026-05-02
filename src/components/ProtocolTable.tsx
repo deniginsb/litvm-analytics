@@ -75,7 +75,7 @@ export function ProtocolTable({ data, isLoading = false }: ProtocolTableProps) {
                 className="cursor-pointer px-5 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted hover:text-text-secondary"
                 onClick={() => handleSort('volume24h')}
               >
-                Volume (24h)
+                Live Volume
                 <SortIcon active={sortKey === 'volume24h'} dir={sortDir} />
               </th>
               <th
