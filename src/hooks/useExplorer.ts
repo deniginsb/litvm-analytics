@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const EXPLORER_API = 'https://liteforge.explorer.caldera.xyz/api'
+const EXPLORER_API = 'https://liteforge.explorer.caldera.xyz/api/v2'
 
 export interface ExplorerTx {
   hash: string
@@ -21,25 +21,31 @@ export function useRecentTransactions(limit = 8) {
 
     async function load() {
       try {
-        const res = await fetch(`${EXPLORER_API}/transactions?limit=${limit}&sort=desc`)
+        const res = await fetch(`${EXPLORER_API}/transactions?limit=${limit}`)
         if (!res.ok) return
         const data = await res.json()
 
         if (alive && data.items) {
           setTransactions(
-            data.items.map((tx: any) => ({
-              hash: tx.hash || '',
-              from: tx.from?.hash || '',
-              to: tx.to?.hash || '',
-              value: tx.value || '0',
-              timestamp: tx.timestamp ? new Date(tx.timestamp).getTime() / 1000 : 0,
-              method: tx.method || 'transfer',
-              status: tx.status || 'ok',
-            }))
+            data.items
+              .filter((tx: any) => {
+                // Filter out ArbOS system txs
+                const from = tx.from?.hash || ''
+                return !from.startsWith('0x00000000000000000000000000000000000A4B05')
+              })
+              .map((tx: any) => ({
+                hash: tx.hash || '',
+                from: tx.from?.hash || '',
+                to: tx.to?.hash || '',
+                value: tx.value || '0',
+                timestamp: tx.timestamp ? new Date(tx.timestamp).getTime() / 1000 : 0,
+                method: tx.method || 'transfer',
+                status: tx.status || 'ok',
+              }))
           )
         }
       } catch {
-        // silent fail
+        // silent
       } finally {
         if (alive) setIsLoading(false)
       }
@@ -71,7 +77,7 @@ export function useTokenList(limit = 10) {
 
     async function load() {
       try {
-        const res = await fetch(`${EXPLORER_API}/tokens?limit=${limit}&sort=holders_count`)
+        const res = await fetch(`${EXPLORER_API}/tokens?limit=${limit}`)
         if (!res.ok) return
         const data = await res.json()
 
@@ -88,7 +94,7 @@ export function useTokenList(limit = 10) {
           )
         }
       } catch {
-        // silent fail
+        // silent
       } finally {
         if (alive) setIsLoading(false)
       }
