@@ -1,76 +1,124 @@
 import { useState, useEffect } from 'react'
 import { ethers } from 'ethers'
 import { getProvider } from './useChainStats'
-import { PROTOCOLS, KNOWN_PAIRS, PAIR_ABI, ERC20_ABI, FACTORY_ABI } from '../data/protocols'
+import { PROTOCOLS, PRICED_TOKENS, PAIR_ABI, ERC20_ABI, FACTORY_ABI, type ProtocolDef } from '../data/protocols'
 
 export interface ProtocolTVL {
   name: string
   category: string
   icon: string
   tvl: number
-  pairCount: number
+  trackedItems: number
   isLive: boolean
+  source: string
 }
 
-// Cache token symbols
-const tokenCache: Record<string, { symbol: string; decimals: number }> = {}
+type TokenMeta = { symbol: string; decimals: number; priceUsd: number }
 
-async function getTokenInfo(address: string, provider: ethers.JsonRpcProvider) {
+const pricedByAddress = new Map(
+  PRICED_TOKENS.map(t => [t.address.toLowerCase(), { symbol: t.symbol, decimals: t.decimals, priceUsd: t.priceUsd }])
+)
+const tokenCache: Record<string, TokenMeta> = {}
+
+async function getTokenMeta(address: string, provider: ethers.JsonRpcProvider): Promise<TokenMeta> {
   const lower = address.toLowerCase()
+  const priced = pricedByAddress.get(lower)
+  if (priced) return priced
   if (tokenCache[lower]) return tokenCache[lower]
 
   try {
-    const contract = new ethers.Contract(address, ERC20_ABI, provider)
+    const token = new ethers.Contract(address, ERC20_ABI, provider)
     const [symbol, decimals] = await Promise.all([
-      contract.symbol().catch(() => '???'),
-      contract.decimals().catch(() => 18),
+      token.symbol().catch(() => 'UNKNOWN'),
+      token.decimals().catch(() => 18),
     ])
-    tokenCache[lower] = { symbol, decimals: Number(decimals) }
+    tokenCache[lower] = { symbol: String(symbol), decimals: Number(decimals), priceUsd: 0 }
     return tokenCache[lower]
   } catch {
-    tokenCache[lower] = { symbol: '???', decimals: 18 }
+    tokenCache[lower] = { symbol: 'UNKNOWN', decimals: 18, priceUsd: 0 }
     return tokenCache[lower]
   }
 }
 
-// Estimate TVL from pair reserves
-// Since we don't have price feeds, we use zkLTC ≈ $80 for estimation
-// and USDC ≈ $1
-const ZKLTC_PRICE_USD = 80
+function valueTokenAmount(amount: bigint, meta: TokenMeta): number {
+  if (!meta.priceUsd) return 0
+  return Number(ethers.formatUnits(amount, meta.decimals)) * meta.priceUsd
+}
 
-function estimatePairTVL(
-  reserve0: bigint,
-  reserve1: bigint,
-  token0Decimals: number,
-  token1Decimals: number,
-  token0Symbol: string,
-  token1Symbol: string
-): number {
-  const r0 = Number(reserve0) / 10 ** token0Decimals
-  const r1 = Number(reserve1) / 10 ** token1Decimals
+async function contractPricedTokenTVL(address: string, provider: ethers.JsonRpcProvider): Promise<number> {
+  const values = await Promise.all(PRICED_TOKENS.map(async tokenDef => {
+    try {
+      const token = new ethers.Contract(tokenDef.address, ERC20_ABI, provider)
+      const balance = await token.balanceOf(address)
+      return Number(ethers.formatUnits(balance, tokenDef.decimals)) * tokenDef.priceUsd
+    } catch {
+      return 0
+    }
+  }))
+  return values.reduce((sum, value) => sum + value, 0)
+}
 
+async function pairTVL(address: string, provider: ethers.JsonRpcProvider): Promise<number> {
+  try {
+    const pair = new ethers.Contract(address, PAIR_ABI, provider)
+    const [reserves, token0, token1] = await Promise.all([
+      pair.getReserves(),
+      pair.token0(),
+      pair.token1(),
+    ])
+    const [meta0, meta1] = await Promise.all([
+      getTokenMeta(token0, provider),
+      getTokenMeta(token1, provider),
+    ])
+    return valueTokenAmount(reserves[0], meta0) + valueTokenAmount(reserves[1], meta1)
+  } catch {
+    return 0
+  }
+}
+
+async function factoryPairAddresses(factoryAddress: string, provider: ethers.JsonRpcProvider): Promise<string[]> {
+  try {
+    const factory = new ethers.Contract(factoryAddress, FACTORY_ABI, provider)
+    const length = Number(await factory.allPairsLength())
+    const pairs = await Promise.all(
+      Array.from({ length: Math.min(length, 150) }, (_, index) => factory.allPairs(index).catch(() => null))
+    )
+    return pairs.filter(Boolean) as string[]
+  } catch {
+    return []
+  }
+}
+
+async function calculateProtocol(protocol: ProtocolDef, provider: ethers.JsonRpcProvider): Promise<ProtocolTVL> {
   let tvl = 0
+  let trackedItems = 0
+  const sources: string[] = []
 
-  // Calculate based on known tokens
-  const sym0 = token0Symbol.toUpperCase()
-  const sym1 = token1Symbol.toUpperCase()
-
-  if (sym0.includes('USD') || sym0 === 'USDC') {
-    tvl += r0 * 1 // USDC = $1
-    tvl += r1 * ZKLTC_PRICE_USD
-  } else if (sym1.includes('USD') || sym1 === 'USDC') {
-    tvl += r0 * ZKLTC_PRICE_USD
-    tvl += r1 * 1
-  } else if (sym0.includes('ZKLTC') || sym0 === 'WZKLTC') {
-    tvl += r0 * ZKLTC_PRICE_USD * 2 // Both sides in zkLTC terms
-  } else if (sym1.includes('ZKLTC') || sym1 === 'WZKLTC') {
-    tvl += r1 * ZKLTC_PRICE_USD * 2
-  } else {
-    // Unknown pair, estimate conservatively
-    tvl = (r0 + r1) * 0.01
+  if (protocol.factoryAddress) {
+    const pairs = await factoryPairAddresses(protocol.factoryAddress, provider)
+    const pairValues = await Promise.all(pairs.map(addr => pairTVL(addr, provider)))
+    tvl += pairValues.reduce((sum, value) => sum + value, 0)
+    trackedItems += pairs.length
+    sources.push(`${pairs.length} DEX pairs`)
   }
 
-  return tvl
+  if (protocol.contracts.length) {
+    const contractValues = await Promise.all(protocol.contracts.map(c => contractPricedTokenTVL(c.address, provider)))
+    const nonZeroContractValues = contractValues.filter(v => v > 0)
+    tvl += nonZeroContractValues.reduce((sum, value) => sum + value, 0)
+    trackedItems += nonZeroContractValues.length
+    if (nonZeroContractValues.length) sources.push(`${nonZeroContractValues.length} token balances`)
+  }
+
+  return {
+    name: protocol.name,
+    category: protocol.category,
+    icon: protocol.icon,
+    tvl,
+    trackedItems,
+    isLive: Boolean(protocol.factoryAddress || protocol.contracts.length),
+    source: sources.join(' + ') || 'No priced balances found',
+  }
 }
 
 export function useProtocolTVL() {
@@ -80,8 +128,9 @@ export function useProtocolTVL() {
       category: p.category,
       icon: p.icon,
       tvl: 0,
-      pairCount: 0,
+      trackedItems: 0,
       isLive: false,
+      source: 'Loading',
     }))
   )
   const [totalTVL, setTotalTVL] = useState(0)
@@ -90,111 +139,23 @@ export function useProtocolTVL() {
   useEffect(() => {
     let alive = true
 
-    async function calculateTVL() {
+    async function calculate() {
       try {
         setIsLoading(true)
         const provider = getProvider()
-
-        // Step 1: Get all pairs from factory
-        const factoryAddr = '0x5687FDA3BdE14d38057699c402606ab470EcA873'
-        const factory = new ethers.Contract(factoryAddr, FACTORY_ABI, provider)
-
-        let pairAddresses: string[] = [...KNOWN_PAIRS]
-
-        try {
-          const pairCount = await factory.allPairsLength()
-          const count = Number(pairCount)
-          console.log(`Factory has ${count} pairs`)
-
-          // Fetch all pair addresses
-          const pairs = await Promise.all(
-            Array.from({ length: Math.min(count, 100) }, (_, i) =>
-              factory.allPairs(i).catch(() => null)
-            )
-          )
-          pairAddresses = pairs.filter(Boolean) as string[]
-        } catch (e) {
-          console.log('Could not query factory, using known pairs')
-        }
-
-        // Step 2: Query each pair for reserves
-        let dexTVL = 0
-        let validPairs = 0
-
-        const pairData = await Promise.all(
-          pairAddresses.map(async (addr) => {
-            try {
-              const pair = new ethers.Contract(addr, PAIR_ABI, provider)
-              const [reserves, token0, token1] = await Promise.all([
-                pair.getReserves(),
-                pair.token0(),
-                pair.token1(),
-              ])
-
-              const [info0, info1] = await Promise.all([
-                getTokenInfo(token0, provider),
-                getTokenInfo(token1, provider),
-              ])
-
-              const tvl = estimatePairTVL(
-                reserves[0],
-                reserves[1],
-                info0.decimals,
-                info1.decimals,
-                info0.symbol,
-                info1.symbol
-              )
-
-              return { addr, tvl, token0: info0.symbol, token1: info1.symbol }
-            } catch {
-              return null
-            }
-          })
-        )
-
-        for (const p of pairData) {
-          if (p && p.tvl > 0) {
-            dexTVL += p.tvl
-            validPairs++
-          }
-        }
-
-        // Step 3: Update protocols
-        if (alive) {
-          const updated = PROTOCOLS.map(p => {
-            if (p.factoryAddress) {
-              return {
-                name: p.name,
-                category: p.category,
-                icon: p.icon,
-                tvl: dexTVL,
-                pairCount: validPairs,
-                isLive: true,
-              }
-            }
-            // Other protocols - check contract balance
-            return {
-              name: p.name,
-              category: p.category,
-              icon: p.icon,
-              tvl: 0,
-              pairCount: 0,
-              isLive: p.contracts.length > 0,
-            }
-          })
-
-          setProtocols(updated)
-          setTotalTVL(dexTVL)
-        }
-      } catch (e) {
-        console.error('Failed to calculate TVL:', e)
+        const rows = await Promise.all(PROTOCOLS.map(protocol => calculateProtocol(protocol, provider)))
+        if (!alive) return
+        setProtocols(rows)
+        setTotalTVL(rows.reduce((sum, protocol) => sum + protocol.tvl, 0))
+      } catch (error) {
+        console.error('Failed to calculate protocol TVL', error)
       } finally {
         if (alive) setIsLoading(false)
       }
     }
 
-    calculateTVL()
-    const id = setInterval(calculateTVL, 300000) // 5 min
+    calculate()
+    const id = setInterval(calculate, 300000)
     return () => { alive = false; clearInterval(id) }
   }, [])
 

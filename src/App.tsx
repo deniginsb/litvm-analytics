@@ -77,12 +77,12 @@ export default function App() {
     tvl: p.tvl,
     volume24h: 0,
     change24h: 0,
-    txCount24h: p.pairCount,
+    txCount24h: p.trackedItems,
     icon: p.icon,
   }))
 
   const statCards = [
-    { label: 'Total Value Locked', value: totalTVL > 0 ? fmtUSD(totalTVL) : '—', isLoading: tvlLoading },
+    { label: 'Tracked TVL', value: totalTVL > 0 ? fmtUSD(totalTVL) : '—', isLoading: tvlLoading },
     { label: '24h Volume', value: '—', isLoading: false },
     { label: 'Transactions (24h)', value: stats.txCount24h > 0 ? fmtNum(stats.txCount24h) : '—', isLoading: loading },
     { label: 'Active Addresses', value: stats.activeAddresses > 0 ? fmtNum(stats.activeAddresses) : '—', isLoading: loading },

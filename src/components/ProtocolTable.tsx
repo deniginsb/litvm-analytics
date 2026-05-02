@@ -89,7 +89,7 @@ export function ProtocolTable({ data, isLoading = false }: ProtocolTableProps) {
                 className="cursor-pointer px-5 py-3 text-right text-xs font-medium uppercase tracking-wider text-text-muted hover:text-text-secondary"
                 onClick={() => handleSort('txCount24h')}
               >
-                Txs (24h)
+                Tracked
                 <SortIcon active={sortKey === 'txCount24h'} dir={sortDir} />
               </th>
             </tr>
